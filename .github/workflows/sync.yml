@@ -1,0 +1,41 @@
+name: Sync Release Index
+
+on:
+  schedule:
+    - cron: "23 */6 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Build release index from TokensCowork
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          mkdir -p site
+          gh api --paginate --slurp "repos/TokensAPI/TokensCowork/releases?per_page=100" | jq 'add' > site/releases.json
+          jq -e 'type == "array"' site/releases.json > /dev/null
+      - name: Configure GitHub Pages
+        uses: actions/configure-pages@v5
+      - name: Upload release index
+        uses: actions/upload-pages-artifact@v4
+        with:
+          path: site
+      - name: Deploy GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
